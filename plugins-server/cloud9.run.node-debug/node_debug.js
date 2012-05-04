@@ -1,7 +1,7 @@
 "use strict";
 
 var util = require("util");
-var netutil = require("../cloud9.core/netutil");
+var netutil = require("netutil");
 var NodeRunner = require("../cloud9.run.node/node").Runner;
 var NodeDebugProxy = require("./nodedebugproxy");
 
@@ -59,7 +59,7 @@ function mixin(Class, Parent) {
         netutil.findFreePort(this.NODE_DEBUG_PORT, 64000, "localhost", function(err, port) {
             if (err)
                 return callback("Could not find a free port");
-                
+
 
             if (self.breakOnStart)
                 self.nodeArgs.push("--debug-brk=" + port);
