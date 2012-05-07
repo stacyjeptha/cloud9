@@ -1,8 +1,5 @@
 "use strict";
 
-var spawn = require("child_process").spawn;
-var killTree = require("./killtree").killTree;
-
 /**
  * Run shell commands
  */
@@ -10,28 +7,25 @@ var killTree = require("./killtree").killTree;
 var exports = module.exports = function setup(options, imports, register) {
     var pm = imports["process-manager"];
 
-    imports.sandbox.getUnixId(function(err, unixId) {
-        if (err) return register(err);
+    pm.addRunner("shell", exports.factory(imports.vfs));
 
-        pm.addRunner("shell", exports.factory(unixId));
-
-        register(null, {
-            "run-shell": {}
-        });
+    register(null, {
+        "run-shell": {}
     });
 };
 
-exports.factory = function(uid) {
+exports.factory = function(vfs) {
     return function(args, eventEmitter, eventName) {
-        return new Runner({
-            uid: uid, command: args.command, args: args.args, cwd: args.cwd, 
-            env: args.env, encoding: args.encoding, extra: args.extra, 
+        return new Runner(vfs, {
+            command: args.command, args: args.args, cwd: args.cwd,
+            env: args.env, encoding: args.encoding, extra: args.extra,
             eventEmitter: eventEmitter, eventName: eventName
         });
     };
 };
 
-var Runner = exports.Runner = function(options) {
+var Runner = exports.Runner = function(vfs, options) {
+    this.vfs = vfs;
     this.uid = options.uid;
     this.command = options.command;
     this.args = options.args || [];
@@ -47,7 +41,7 @@ var Runner = exports.Runner = function(options) {
         this.runOptions.cwd = options.cwd;
 
     var env = options.env || {};
-    
+
     for (var key in process.env)
         if (!env.hasOwnProperty(key))
             env[key] = process.env[key];
@@ -111,17 +105,10 @@ var Runner = exports.Runner = function(options) {
     };
 
     this.createChild = function(callback) {
-        if (this.uid) {
-            this.args = ["-Hu", "#" + this.uid, this.command].concat(this.args);
-            this.command = "sudo";
-        }
-
-        try {
-            var child = spawn(this.command, this.args, this.runOptions);
-        } catch (e) {
-            return callback(e);
-        }
-        callback(null, child);
+        this.runOptions.args = this.args;
+        this.vfs.spawn(this.command, this.runOptions, function(err, meta) {
+            callback(err, meta && meta.process);
+        });
     };
 
     this.attachEvents = function(child) {
@@ -130,12 +117,12 @@ var Runner = exports.Runner = function(options) {
 
         child.stdout.on("data", sender("stdout"));
         child.stderr.on("data", sender("stderr"));
-        
+
         if (this.encoding) {
             child.stdout.setEncoding(this.encoding);
             child.stderr.setEncoding(this.encoding);
         }
-        
+
         function emit(msg) {
             // console.log(self.eventName, msg);
             self.eventEmitter.emit(self.eventName, msg);
@@ -172,14 +159,7 @@ var Runner = exports.Runner = function(options) {
     };
 
     this.kill = function() {
-        var self = this;
-        killTree(this.pid);
-
-        // check after 2sec if the process is really dead
-        // If not kill it harder
-        setTimeout(function() {
-            killTree(self.pid, "SIGKILL");
-        }, 2000);
+        this.child && this.child.kill();
     };
 
     this.describe = function() {
