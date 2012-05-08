@@ -133,7 +133,7 @@ sys.inherits(JVMFeatures, Plugin);
             if (err)
               return _self.$error("Could not find a free port", 1, err);
             var eclipseClient = new EclipseClient("localhost", port,
-                "/home/eweda/runtime-CodeCompletePlugin.Cloud9Eclipse");
+                "/home/ubuntu/runtime-CodeCompletePlugin.Cloud9Eclipse");
             eclipseClient.on("lifecycle:connected", function() {
               console.log("Eclipse session initalied");
               _self.eclipseClient = eclipseClient;

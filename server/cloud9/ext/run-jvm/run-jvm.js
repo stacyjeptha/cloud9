@@ -56,7 +56,7 @@ sys.inherits(JVMRuntimePlugin, Plugin);
                     function(err, port) {
                     if (err) return _self.$error("Could not find a free port", 9, message);
 
-                    message.port = port;
+                    message.debugPort = port;
                     message.debug = true;
                     _self.$run(message, client);
                 });
@@ -93,21 +93,15 @@ sys.inherits(JVMRuntimePlugin, Plugin);
             .replace(/\.java$/, "");
     }
 
-    // Maybe future refactor to run the debug process from here
-    // Only debug pure java console projects
-    this.$debug = function (message, file, args, cwd) {
+    // Refactored to run the debug process from javascript code
+    this.$debug = function (message, file, cwd) {
         var _self = this;
 
         var appPath = cwd;
         var debugOptions = {
-            main_class: srcToJavaClass(file),
-            port: message.port,
-            host: 'localhost',
-            classpath: appPath + 'bin',
+            port: message.debugPort,
             sourcepath: appPath + 'src'
         };
-
-        console.log(JSON.stringify(debugOptions));
 
         if (this.javaDebugProxy)
             return this.$error("Debug session already running", 4, message);
@@ -118,26 +112,11 @@ sys.inherits(JVMRuntimePlugin, Plugin);
                 "type": "node-debug",
                 "body": body
             };
-            if (body && body.event === 'output')
-                send('stdout', body.body.text);
-            else if (body && body.event === 'error')
-                send('stderr', body.body.text);
-            else
             _self.ide.broadcast(JSON.stringify(msg), _self.name);
         });
 
-        function send(stream, data) {
-            var message = {
-                "type": "node-data",
-                "stream": stream,
-                "data": data.toString("utf8")
-            };
-            _self.ide.broadcast(JSON.stringify(message), _self.name);
-        }
-
         this.javaDebugProxy.on("connection", function() {
             _self.debugClient = true;
-            _self.instance = true;
             _self.workspace.getExt("state").publishState();
             _self.ide.broadcast('{"type": "node-start"}', _self.name);
             _self.ide.broadcast('{"type": "node-debug-ready"}', _self.name);
@@ -167,6 +146,7 @@ sys.inherits(JVMRuntimePlugin, Plugin);
     };
 
     this.$run = function(message, client) {
+        console.log('$run called');
         var _self = this;
 
         if (this.instance)
@@ -186,33 +166,30 @@ sys.inherits(JVMRuntimePlugin, Plugin);
                 var args = [].concat(file).concat(message.args || []);
                 // message.runner = "java", "jy", "jrb", "groovy", "js-rhino"
                 // Only java debug is now supported
-                if (message.debug && message.runner === 'java')
-                    _self.$debug(message, file.substring(cwd.length), args, cwd);
-                else
-                    _self.$runJVM(message.runner, file.substring(cwd.length), args, cwd);
+                _self.$runJVM(message, file.substring(cwd.length), args, cwd, message.debug);
            });
         });
     };
 
-    this.$runJVM = function(runner, file, args, cwd) {
+    this.$runJVM = function(message, file, args, cwd, isDebug) {
         var _self = this;
 
         var jvmInstance;
+        var runner = message.runner;
 
         switch (runner) {
             case "java":
                 var javaClass = srcToJavaClass(file);
-                console.log("java class: " + javaClass);
                 jvmInstance = new JVMInstance(cwd, javaClass);
                 break;
 
             case "java-web":
                 netutil.findFreePort(this.WEBAPP_START_PORT, this.WEBAPP_START_PORT + 1000, "localhost",
-                function(err, port) {
-                    if (err)
-                        return _self.$error("Could not find a free port", 1, err);
+                    function(err, port) {
 
-                    jvmInstance = new WebJVMInstance(cwd, 'j2ee', 'localhost', port);
+                    if (err) return _self.$error("Could not find a free port", 1, err);
+
+                    jvmInstance = new WebJVMInstance(cwd, 'j2ee', port);
                     jvmInstance.on('lifecycle:started', function() {
                         // TODO, notify the client that the server is now started
                         // _self.ide.broadcast(JSON.stringify({}), _self.name);
@@ -243,14 +220,22 @@ sys.inherits(JVMRuntimePlugin, Plugin);
         switch (runner) {
             case "java":
             case "java-web":
-                build(cwd, function(err, compilationResult) {
+                build(cwd, function(err, compilationProblems) {
                     if (err)  return console.error(err);
 
-                    if (compilationResult.errors.length == 0)
+                    // If no errors found, we can start
+                    if (compilationProblems.filter(function (problem) {
+                        return problem.type == "error"; }).length == 0) {
                         start();
-                    else
-                        // TODO send compilation errors to the user
-                        console.log("Compilation errors: " + JSON.stringify(compilationResult));
+                    }
+                    else {
+                        console.log("Found " + compilationProblems.length + " compilation errors");
+                        // send compilation errors to the user
+                        _self.sendResult(0, "jvmfeatures:build", {
+                            success: true,
+                            body: compilationProblems
+                        });
+                    }
                 }, "build");
                 break;
             case "jpy":
@@ -262,6 +247,10 @@ sys.inherits(JVMRuntimePlugin, Plugin);
         }
 
         function start() {
+            var debugPort = null;
+            if (isDebug && (runner == 'java' || runner == 'java-web'))
+                debugPort = message.debugPort;
+
             console.log("JVM started");
             jvmInstance.on("output", sender("stdout"));
             jvmInstance.on("err", sender("stderr"));
@@ -269,11 +258,18 @@ sys.inherits(JVMRuntimePlugin, Plugin);
             _self.instance = jvmInstance;
             _self.workspace.getExt("state").publishState();
             _self.ide.broadcast(JSON.stringify({"type": "node-start"}), _self.name);
-            jvmInstance.start();
+            jvmInstance.start(debugPort);
 
             jvmInstance.on("exit", function(code) {
                 _self.$procExit();
             });
+
+            if (debugPort) {
+                // TODO fix the deterministic time or change the launch strategy
+                setTimeout(function function_name (argument) {
+                    _self.$debug(message, file, cwd);
+                }, 1000);
+            }
         }
 
         function sender(stream) {
@@ -291,22 +287,13 @@ sys.inherits(JVMRuntimePlugin, Plugin);
     };
 
     this.$procExit = function(noBroadcast) {
-        console.log('$procExit called');
         if (!noBroadcast)
             this.ide.broadcast(JSON.stringify({"type": "node-exit"}), this.name);
 
         if (this.instance) {
-            try {
-                // In debug, instance is only a boolean
-                this.instance.kill && this.instance.kill();
-            }
-            catch(e) {}
+            this.instance.kill();
         }
 
-        if (this.javaDebugProxy) {
-            // disconnect javaDebugProxy if not already disconnected
-            this.javaDebugProxy.disconnect();
-        }
         this.workspace.getExt("state").publishState();
 
         delete this.instance;

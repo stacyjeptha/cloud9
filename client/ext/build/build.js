@@ -67,16 +67,18 @@ module.exports = ext.register("ext/build/build", {
         ext.initExtension(this);
     },
 
-    init : function(amlNode){
+    init : function(amlNode) {
         var _self = this;
-        
+
         ide.addEventListener("socketMessage", function(e) {
             var message = e.message;
             if (message.subtype == "jvmfeatures:build") {
-                console.log("build: ", message);
+                _self.execBuild(true);
                 var msg = message.body;
                 if (! msg.success) {
-                    // TODO pop up an error dialog with "build failure"
+                    var err = "Build failed with runtime errors !!";
+                    console.error(err);
+                    trDGBuild.setAttribute("empty-message", err);
                     return;
                 }
                 var problems = msg.body;
@@ -91,7 +93,6 @@ module.exports = ext.register("ext/build/build", {
                     };
                     var sortedProblems = filterType("error").concat(filterType("warning"));
                     var problemsXML = _self.problemsJsonToXml(sortedProblems);
-                    console.log(problemsXML);
                     _self.$model.load(apf.getXml('<problems>' + problemsXML + '</problems>'));
                 }
             }
@@ -122,7 +123,9 @@ module.exports = ext.register("ext/build/build", {
 
     problemsJsonToXml: function(problems) {
         function escape(str) {
-            return str.replace(/"/g, "'");
+            return str.replace(/"/g, "'")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
         }
         var xmlS = [];
         var filePrefix = '/' + window.cloud9config.projectName + '/';
@@ -141,7 +144,7 @@ module.exports = ext.register("ext/build/build", {
         return xmlS.join('');
     },
 
-    execBuild: function() {
+    execBuild: function(noRequest) {
         var _self = this;
         // show the console (also used by the debugger):
         ideConsole.show();
@@ -162,23 +165,23 @@ module.exports = ext.register("ext/build/build", {
                 return false;
             });
         }
-        else {
-            tabConsole.appendChild(this.$panel);
-        }
+
         // show the tab
         tabConsole.set(this.pageID);
 
         var projectName = window.cloud9config.projectName;
         trDGBuild.setAttribute("empty-message", "Building '" + projectName + "'...");
-
-        // send build request
-        var command = {
-          command : "jvmfeatures",
-          subcommand : "build",
-          project: projectName
-        };
-        ide.send(JSON.stringify(command));
         this.$model.clear();
+
+        if (! noRequest) {
+            // send build request
+            var command = {
+              command : "jvmfeatures",
+              subcommand : "build",
+              project: projectName
+            };
+            ide.send(JSON.stringify(command));
+        }
     },
 
     jumpTo: function(el) {

@@ -47,6 +47,7 @@ sys.inherits(DebugProxy, process.EventEmitter);
 
         this.service.attach(0, function() {});
 
+        // TODO : fix the deterministic time or change the connection strategy
         // Init debug
         setTimeout(function() {
             _self.send({
@@ -55,20 +56,10 @@ sys.inherits(DebugProxy, process.EventEmitter);
                 command: 'init',
                 arguments: {
                     address:  { port: _self.options.port },
-                    main_class: _self.options.main_class,
-                    classpath: _self.options.classpath,
                     sourcepath: _self.options.sourcepath
                 }
             });
         }, 1000);
-    };
-
-    this.disconnect = function() {
-        this.send({
-            seq: 0,
-            type: 'request',
-            command: 'disconnect'
-        });
     };
 
     this.send = function(msgJson) {
