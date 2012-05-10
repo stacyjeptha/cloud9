@@ -145,6 +145,7 @@ var Runner = exports.Runner = function(vfs, options) {
                 "code": code,
                 "extra": self.extra
             });
+            self.pid = 0;
         });
 
         process.nextTick(function() {
@@ -153,7 +154,6 @@ var Runner = exports.Runner = function(vfs, options) {
                 "pid": pid,
                 "extra": self.extra
             });
-            self.pid = 0;
         });
     };
 
