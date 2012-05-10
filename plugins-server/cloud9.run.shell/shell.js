@@ -51,14 +51,7 @@ var Runner = exports.Runner = function(vfs, options) {
     this.eventEmitter = options.eventEmitter;
     this.eventName = options.eventName;
 
-    this.child = {
-        pid: null
-    };
-
-    var self = this;
-    this.__defineGetter__("pid", function(){
-        return (self.child.exitCode === null && self.child.signalCode === null)  ? self.child.pid : 0;
-    });
+    this.pid = 0;
 };
 
 (function() {
@@ -72,6 +65,8 @@ var Runner = exports.Runner = function(vfs, options) {
                 return onStart(err);
 
             self.child = child;
+            self.pid = child.pid;
+
             onStart(null, child.pid);
 
             var out = "";
@@ -79,6 +74,7 @@ var Runner = exports.Runner = function(vfs, options) {
 
             child.on("exit", function(code) {
                 onExit(code, out, err);
+                self.pid = 0;
             });
 
             child.stdout.on("data", function (data) {
@@ -98,6 +94,8 @@ var Runner = exports.Runner = function(vfs, options) {
                 return callback(err);
 
             self.child = child;
+            self.pid = child.pid;
+
             self.attachEvents(child);
 
             callback(null, child.pid);
@@ -155,6 +153,7 @@ var Runner = exports.Runner = function(vfs, options) {
                 "pid": pid,
                 "extra": self.extra
             });
+            self.pid = 0;
         });
     };
 
