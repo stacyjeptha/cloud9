@@ -30,8 +30,8 @@ var Ide = module.exports = function(options) {
 
     this.workspaceDir = options.workspaceDir;
 
-
     options.plugins = options.plugins || [];
+
     this.options = {
         workspaceDir: this.workspaceDir,
         mountDir: options.mountDir || this.workspaceDir,
@@ -260,7 +260,7 @@ util.inherits(Ide, EventEmitter);
 
     this.dispose = function(callback) {
         this.emit("destroy");
-        
+
         this.workspace.dispose(callback);
     };
 }).call(Ide.prototype);

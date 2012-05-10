@@ -57,7 +57,7 @@ function mixin(Class, Parent) {
 
     proto.createChild = function(callback) {
         var self = this;
-        var port = 5858;
+        var port = this.NODE_DEBUG_PORT;
 
         if (self.breakOnStart)
             self.nodeArgs.push("--debug-brk=" + port);
