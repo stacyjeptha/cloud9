@@ -17,6 +17,9 @@ module.exports = function(options, imports, register) {
             },
             getUnixId: function(callback) {
                 callback(null, options.unixId || null);
+            },
+            getPort: function(callback) {
+                callback(null, options.port || 8080);
             }
         }
     });
