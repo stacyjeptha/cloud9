@@ -10,17 +10,22 @@ var NodeDebugProxy = require("./nodedebugproxy");
 
 var exports = module.exports = function setup(options, imports, register) {
     var pm = imports["process-manager"];
-    var ide = imports.ide.getServer();
     var vfs = imports.vfs;
 
-    pm.addRunner("node-debug", exports.factory(vfs, ide));
+    imports.sandbox.getProjectDir(function(err, projectDir) {
+        if (err)
+            return register(err);
 
-    register(null, {
-        "run-node-debug": {}
+        pm.addRunner("node-debug", exports.factory(vfs, projectDir));
+
+        register(null, {
+            "run-node-debug": {}
+        });
     });
+
 };
 
-exports.factory = function(vfs, ide) {
+exports.factory = function(vfs, workspaceDir) {
     return function(args, eventEmitter, eventName) {
         var cwd = args.cwd || ide.workspaceDir;
         return new Runner(vfs, {

@@ -9,19 +9,23 @@ var ShellRunner = require("../cloud9.run.shell/shell").Runner;
 
 var exports = module.exports = function setup(options, imports, register) {
     var pm = imports["process-manager"];
-    var ide = imports.ide.getServer();
     var vfs = imports.vfs;
 
-    pm.addRunner("node", exports.factory(vfs, ide));
+    imports.sandbox.getProjectDir(function(err, projectDir) {
+        if (err)
+            return register(err);
 
-    register(null, {
-        "run-node": {}
+        pm.addRunner("node", exports.factory(vfs, projectDir));
+
+        register(null, {
+            "run-node": {}
+        });
     });
 };
 
-exports.factory = function(vfs, ide) {
+exports.factory = function(vfs, workspaceDir) {
     return function(args, eventEmitter, eventName) {
-        var cwd = args.cwd || ide.workspaceDir;
+        var cwd = args.cwd || workspaceDir;
 
         return new Runner(vfs, {
             file: args.file,
