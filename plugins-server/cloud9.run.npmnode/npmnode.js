@@ -5,12 +5,12 @@ var ShellRunner = require("../cloud9.run.shell/shell").Runner;
 
 var exports = module.exports = function setup(options, imports, register) {
    var pm = imports["process-manager"];
-   var ide = imports.ide.getServer();
 
-   imports.sandbox.getUnixId(function(err, unixId) {
-       if (err) return register(err);
+    imports.sandbox.getProjectDir(function(err, projectDir) {
+        if (err)
+            return register(err);
 
-       pm.addRunner("run-npm", exports.factory(unixId, ide));
+       pm.addRunner("run-npm", exports.factory(imports.vfs, projectDir));
 
        register(null, {
            "run-run-npm": {}
@@ -18,15 +18,14 @@ var exports = module.exports = function setup(options, imports, register) {
    });
 };
 
-exports.factory = function(uid, ide) {
+exports.factory = function(vfs, projectDir) {
     return function(args, eventEmitter, eventName) {
-        var cwd = args.cwd || ide.workspaceDir;
-        return new Runner(uid, args.file, args.args, cwd, args.env, args.extra, eventEmitter, eventName);
+        var cwd = args.cwd || projectDir;
+        return new Runner(vfs, args.file, args.args, cwd, args.env, args.extra, eventEmitter, eventName);
     };
 };
 
-var Runner = exports.Runner = function(uid, file, args, cwd, env, extra, eventEmitter, eventName) {
-    this.uid = uid;
+var Runner = exports.Runner = function(vfs, file, args, cwd, env, extra, eventEmitter, eventName) {
     this.file = file;
     this.extra = extra;
 
@@ -34,7 +33,15 @@ var Runner = exports.Runner = function(uid, file, args, cwd, env, extra, eventEm
     this.nodeArgs = [];
 
     env = env || {};
-    ShellRunner.call(this, uid, process.execPath, [], cwd, env, extra, eventEmitter, eventName);
+    ShellRunner.call(this, vfs, {
+        command: process.execPath,
+        args: [],
+        cwd: cwd,
+        env: env,
+        extra: extra,
+        eventEmitter: eventEmitter,
+        eventName: eventName
+    });
 };
 
 util.inherits(Runner, ShellRunner);

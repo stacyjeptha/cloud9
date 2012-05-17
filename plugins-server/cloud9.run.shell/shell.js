@@ -17,9 +17,14 @@ var exports = module.exports = function setup(options, imports, register) {
 exports.factory = function(vfs) {
     return function(args, eventEmitter, eventName) {
         return new Runner(vfs, {
-            command: args.command, args: args.args, cwd: args.cwd,
-            env: args.env, encoding: args.encoding, extra: args.extra,
-            eventEmitter: eventEmitter, eventName: eventName
+            command: args.command,
+            args: args.args,
+            cwd: args.cwd,
+            env: args.env,
+            encoding: args.encoding,
+            extra: args.extra,
+            eventEmitter: eventEmitter,
+            eventName: eventName
         });
     };
 };
