@@ -45,6 +45,11 @@ var Runner = exports.Runner = function(vfs, options) {
     if (options.cwd)
         this.runOptions.cwd = options.cwd;
 
+    if (this.encoding) {
+        this.runOptions.stdoutEncoding = this.encoding;
+        this.runOptions.stderrEncoding = this.encoding;
+    }
+
     var env = options.env || {};
 
     for (var key in process.env)
@@ -120,11 +125,6 @@ var Runner = exports.Runner = function(vfs, options) {
 
         child.stdout.on("data", sender("stdout"));
         child.stderr.on("data", sender("stderr"));
-
-        if (this.encoding) {
-            child.stdout.setEncoding(this.encoding);
-            child.stderr.setEncoding(this.encoding);
-        }
 
         function emit(msg) {
             // console.log(self.eventName, msg);

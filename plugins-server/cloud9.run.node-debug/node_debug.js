@@ -27,7 +27,7 @@ var exports = module.exports = function setup(options, imports, register) {
 
 exports.factory = function(vfs, workspaceDir) {
     return function(args, eventEmitter, eventName) {
-        var cwd = args.cwd || ide.workspaceDir;
+        var cwd = args.cwd || workspaceDir;
         return new Runner(vfs, {
             file: args.file,
             args: args.args,

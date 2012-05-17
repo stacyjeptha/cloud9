@@ -46,7 +46,6 @@ var Runner = exports.Runner = function(vfs, options) {
     this.file = options.file;
     this.extra = options.extra;
 
-
     this.scriptArgs = options.args || [];
     this.nodeArgs = [];
 
@@ -61,6 +60,7 @@ util.inherits(Runner, ShellRunner);
     this.name = "node";
 
     this.createChild = function(callback) {
+        this.command = process.execPath;
         this.args = this.nodeArgs.concat(this.file, this.scriptArgs);
         ShellRunner.prototype.createChild.call(this, callback);
     };
